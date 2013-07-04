@@ -557,7 +557,7 @@ class Multiplex:
 
 class AjaxTerm:
 
-    def __init__(self, cmd=None, index_file='ajaxterm.html'):
+    def __init__(self, cmd=None):
         self.multi = Multiplex(cmd)
         self.session = {}
 
@@ -597,8 +597,8 @@ class AjaxTerm:
 #       print "sessions %r"%self.session
         return res(environ, start_response)
 
-def make_app(global_conf, cmd=None, index_file='ajaxterm.html'):
-    return AjaxTerm(cmd, index_file)
+def make_app(global_conf, cmd=None):
+    return AjaxTerm(cmd)
 
 def make_server(global_conf, port, host='', use_reloader=False):
     port = int(port)
@@ -615,8 +615,6 @@ def main():
     parser = ArgumentParser(description='Akiri WSGI Server')
     parser.add_argument('configpath')
     args = parser.parse_args()
-
-    cmd = None
 
     path = os.path.abspath(args.configpath)
     url = 'config:'+path
