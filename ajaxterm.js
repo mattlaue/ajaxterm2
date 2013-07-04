@@ -25,20 +25,24 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 	function debug(s) {
 		sdebug.innerHTML=s;
 	}
-	function error() {
+
+ 	function error() {
 		sled.className='off';
 		debug("Connection lost timeout ts:"+((new Date).getTime()));
 	}
+
 	function opt_add(opt,name) {
 		opt.className='off';
 		opt.innerHTML=' '+name+' ';
 		dstat.appendChild(opt);
 		dstat.appendChild(document.createTextNode(' '));
 	}
+
 	function do_get(event) {
 		opt_get.className=(opt_get.className=='off')?'on':'off';
 		debug('GET '+opt_get.className);
 	}
+
 	function do_color(event) {
 		var o=opt_color.className=(opt_color.className=='off')?'on':'off';
 		if(o=='on')
@@ -47,6 +51,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 			query1=query0+"&k=";
 		debug('Color '+opt_color.className);
 	}
+
 	function mozilla_clipboard() {
 		 // mozilla sucks
 		try {
@@ -78,6 +83,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 			return "";
 		}
 	}
+
 	function do_paste(event) {
 		var p=undefined;
 		if (window.clipboardData) {
@@ -91,18 +97,19 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 		} else {
 		}
 	}
+
 	function update() {
 //		debug("ts: "+((new Date).getTime())+" rmax:"+rmax);
 		if(sending==0) {
 			sending=1;
 			sled.className='on';
-			var r=new XMLHttpRequest();
-			var send="";
+			var r = new XMLHttpRequest();
+			var send = "";
 			while(keybuf.length>0) {
-				send+=keybuf.pop();
+				send += keybuf.pop();
 			}
-			var query=query1+send;
-			if(opt_get.className=='on') {
+			var query = query1+send;
+			if(opt_get.className == 'on') {
 				r.open("GET","u?"+query,true);
 				if(ie) {
 					r.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
@@ -113,11 +120,11 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 			r.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
 			r.onreadystatechange = function () {
 //				debug("xhr:"+((new Date).getTime())+" state:"+r.readyState+" status:"+r.status+" statusText:"+r.statusText);
-				if (r.readyState==4) {
-					if(r.status==200) {
+				if (r.readyState == 4) {
+					if(r.status == 200) {
 						window.clearTimeout(error_timeout);
-						de=r.responseXML.documentElement;
-						if(de.tagName=="pre") {
+						var de = r.responseXML.documentElement;
+						if(de.tagName == "pre") {
 							if(ie) {
 								Sarissa.updateContentFromNode(de, dterm);
 							} else {
@@ -147,6 +154,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 			}
 		}
 	}
+
 	function queue(s) {
 		keybuf.unshift(s);
 		if(sending==0) {
@@ -154,6 +162,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 			timeout=window.setTimeout(update,1);
 		}
 	}
+
 	function keypress(ev) {
 		if (!ev) var ev=window.event;
 //		s="kp keyCode="+ev.keyCode+" which="+ev.which+" shiftKey="+ev.shiftKey+" ctrlKey="+ev.ctrlKey+" altKey="+ev.altKey;
@@ -232,6 +241,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 		if (ev.preventDefault)  ev.preventDefault();
 		return false;
 	}
+
 	function keydown(ev) {
 		if (!ev) var ev=window.event;
 		if (ie) {
@@ -245,6 +255,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 			}
 		}
 	}
+
 	function init() {
 		sled.appendChild(document.createTextNode('\xb7'));
 		sled.className='off';
@@ -273,6 +284,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 	}
 	init();
 }
+
 ajaxterm.Terminal=function(id,width,height) {
 	return new this.Terminal_ctor(id,width,height);
 }
