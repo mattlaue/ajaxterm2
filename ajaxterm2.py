@@ -5,12 +5,8 @@
 import array
 import cgi
 import fcntl
-import glob
-import mimetypes
-import optparse
 import os
 import pty
-import random
 import re
 import signal
 import select
@@ -19,9 +15,8 @@ import threading
 import time
 import termios
 import struct
-import pwd
 
-os.chdir(os.path.normpath(os.path.dirname(__file__)))
+import logging
 
 import webob
 
@@ -562,102 +557,76 @@ class Multiplex:
 
 class AjaxTerm:
 
-    def __init__(self,cmd=None,index_file='ajaxterm.html'):
-        self.files={}
-        for i in ['css','html','js']:
-            for j in glob.glob('*.%s'%i):
-                self.files[j]=file(j).read()
-        self.files['index']=file(index_file).read()
-        self.mime = mimetypes.types_map.copy()
-        self.mime['.html']= 'text/html; charset=UTF-8'
+    def __init__(self, cmd=None, index_file='ajaxterm.html'):
         self.multi = Multiplex(cmd)
         self.session = {}
 
     def __call__(self, environ, start_response):
         req = webob.Request(environ)
         res = webob.Response()
-        if req.path_info.endswith('/u'):
-            if req.method == 'POST':
-                s = req.POST["s"]
-                k = req.POST["k"]
-                color = 'c' in req.POST and req.POST["c"] or 0
-                w = int(req.POST["w"])
-                h = int(req.POST["h"])
-            else:
-                s = req.GET["s"]
-                k = req.GET["k"]
-                color = 'c' in req.GET and req.GET["c"] or 0
-                w = int(req.GET["w"])
-                h = int(req.GET["h"])
-            if s in self.session:
-                term = self.session[s]
-            else:
-                if not (w>2 and w<256 and h>2 and h<100):
-                    w,h=80,25
-                term=self.session[s]=self.multi.create(w,h)
-            if k:
-                self.multi.proc_write(term,k)
-            time.sleep(0.002)
-            dump = self.multi.dump(term, color) 
-            res.content_type = 'text/xml'
-            if isinstance(dump, str):
-                res.body_file.write(dump)
-                #req.write(dump)
-                #req.response_gzencode=1
-            else:
-                del self.session[s]
-                res.body_file.write('<?xml version="1.0"?><idem></idem>')
-#           print "sessions %r"%self.session
+        if req.method == 'POST':
+            s = req.POST["s"]
+            k = req.POST["k"]
+            color = 'c' in req.POST and req.POST["c"] or 0
+            w = int(req.POST["w"])
+            h = int(req.POST["h"])
         else:
-            n = os.path.basename(req.path_info)
-            if n in self.files:
-                res.content_type = self.mime.get(os.path.splitext(n)[1].lower(), 'application/octet-stream')
-                res.body_file.write(self.files[n])
-            else:
-                res.content_type = 'text/html'
-                res.charset = 'utf8'
-                res.body_file.write(self.files['index'])
+            s = req.GET["s"]
+            k = req.GET["k"]
+            color = 'c' in req.GET and req.GET["c"] or 0
+            w = int(req.GET["w"])
+            h = int(req.GET["h"])
+        if s in self.session:
+            term = self.session[s]
+        else:
+            if not (w>2 and w<256 and h>2 and h<100):
+                w,h=80,25
+            term=self.session[s]=self.multi.create(w,h)
+        if k:
+            self.multi.proc_write(term,k)
+        time.sleep(0.002)
+        dump = self.multi.dump(term, color) 
+        res.content_type = 'text/xml'
+        if isinstance(dump, str):
+            res.body_file.write(dump)
+            #req.write(dump)
+            #req.response_gzencode=1
+        else:
+            del self.session[s]
+            res.body_file.write('<?xml version="1.0"?><idem></idem>')
+#       print "sessions %r"%self.session
         return res(environ, start_response)
 
+def make_app(global_conf, cmd=None, index_file='ajaxterm.html'):
+    return AjaxTerm(cmd, index_file)
+
+def make_server(global_conf, port, host='', use_reloader=False):
+    port = int(port)
+    def serve(app):
+        from paste import httpserver
+        httpserver.serve(app, host=host, port=port)
+    return serve
+
+LOGGING_FORMAT = '[%(asctime)s] %(levelname)s %(message)s'
+
 def main():
-    parser = optparse.OptionParser()
-    parser.add_option("-p", "--port", dest="port", default="8022", help="Set the TCP port (default: 8022)")
-    parser.add_option("-c", "--command", dest="cmd", default=None,help="set the command (default: /bin/login or ssh localhost)")
-    parser.add_option("-l", "--log", action="store_true", dest="log",default=0,help="log requests to stderr (default: quiet mode)")
-    parser.add_option("-d", "--daemon", action="store_true", dest="daemon", default=0, help="run as daemon in the background")
-    parser.add_option("-P", "--pidfile",dest="pidfile",default="/var/run/ajaxterm.pid",help="set the pidfile (default: /var/run/ajaxterm.pid)")
-    parser.add_option("-i", "--index", dest="index_file", default="ajaxterm.html",help="default index file (default: ajaxterm.html)")
-    parser.add_option("-u", "--uid", dest="uid", help="Set the daemon's user id")
-    (o, a) = parser.parse_args()
-    if o.daemon:
-        pid=os.fork()
-        if pid == 0:
-            #os.setsid() ?
-            os.setpgrp()
-            nullin = file('/dev/null', 'r')
-            nullout = file('/dev/null', 'w')
-            os.dup2(nullin.fileno(), sys.stdin.fileno())
-            os.dup2(nullout.fileno(), sys.stdout.fileno())
-            os.dup2(nullout.fileno(), sys.stderr.fileno())
-            if os.getuid()==0 and o.uid:
-                try:
-                    os.setuid(int(o.uid))
-                except:
-                    os.setuid(pwd.getpwnam(o.uid).pw_uid)
-        else:
-            try:
-                file(o.pidfile,'w+').write(str(pid)+'\n')
-            except:
-                pass
-            print 'AjaxTerm at http://localhost:%s/ pid: %d' % (o.port,pid)
-            sys.exit(0)
-    else:
-        print 'AjaxTerm at http://localhost:%s/' % o.port
+    from argparse import ArgumentParser
 
-    at = AjaxTerm(o.cmd,o.index_file)
+    parser = ArgumentParser(description='Akiri WSGI Server')
+    parser.add_argument('configpath')
+    args = parser.parse_args()
 
-    from paste import httpserver
-    httpserver.serve(at, host='localhost', port=int(o.port))
+    cmd = None
+
+    path = os.path.abspath(args.configpath)
+    url = 'config:'+path
+
+    logging.basicConfig(level=logging.INFO, format=LOGGING_FORMAT)
+
+    import paste.deploy
+    app = paste.deploy.loadapp(url)
+    serve = paste.deploy.loadserver(url)
+    serve(app)
 
 if __name__ == '__main__':
     main()
