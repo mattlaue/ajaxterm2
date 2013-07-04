@@ -602,6 +602,11 @@ def make_app(global_conf, cmd=None):
 
 def make_server(global_conf, port, host='', use_reloader=False):
     port = int(port)
+
+    if use_reloader:
+        from paste import reloader
+        reloader.install()
+
     def serve(app):
         from paste import httpserver
         httpserver.serve(app, host=host, port=port)
@@ -625,7 +630,8 @@ def main():
     app = paste.deploy.loadapp(url)
     serve = paste.deploy.loadserver(url)
     serve(app)
+    return 0
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
 
