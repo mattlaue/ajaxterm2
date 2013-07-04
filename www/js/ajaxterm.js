@@ -12,6 +12,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 	var keybuf=[];
 	var sending=0;
 	var rmax=1;
+    var keystate = -1;
 
 	var div=document.getElementById(id);
 	var dstat=document.createElement('pre');
@@ -99,55 +100,50 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 	}
 
 	function update() {
-//		debug("ts: "+((new Date).getTime())+" rmax:"+rmax);
-		if(sending==0) {
-			sending=1;
-			sled.className='on';
+		if(sending == 0) {
+			sending = 1;
+			sled.className = 'on';
 			var r = new XMLHttpRequest();
 			var send = "";
-			while(keybuf.length>0) {
+			while(keybuf.length > 0) {
 				send += keybuf.pop();
 			}
-			var query = query1+send;
+			var query = query1 + send;
 			if(opt_get.className == 'on') {
-				r.open("GET","u?"+query,true);
+				r.open("GET","u?"+query, true);
 				if(ie) {
-					r.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
+					r.setRequestHeader("If-Modified-Since", 
+                                       "Sat, 1 Jan 2000 00:00:00 GMT");
 				}
 			} else {
-				r.open("POST","u",true);
+				r.open("POST", "u", true);
 			}
-			r.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+			r.setRequestHeader('Content-Type',
+                               'application/x-www-form-urlencoded');
 			r.onreadystatechange = function () {
-//				debug("xhr:"+((new Date).getTime())+" state:"+r.readyState+" status:"+r.status+" statusText:"+r.statusText);
 				if (r.readyState == 4) {
 					if(r.status == 200) {
 						window.clearTimeout(error_timeout);
 						var de = r.responseXML.documentElement;
 						if(de.tagName == "pre") {
-							if(ie) {
-								Sarissa.updateContentFromNode(de, dterm);
-							} else {
-								Sarissa.updateContentFromNode(de, dterm);
-//								old=div.firstChild;
-//								div.replaceChild(de,old);
-							}
-							rmax=100;
+							Sarissa.updateContentFromNode(de, dterm);
+							rmax = 100;
 						} else {
-							rmax*=2;
-							if(rmax>2000)
-								rmax=2000;
+							rmax *= 2;
+							if(rmax > 2000) {
+								rmax = 2000;
+                            }
 						}
-						sending=0;
-						sled.className='off';
-						timeout=window.setTimeout(update,rmax);
+						sending = 0;
+						sled.className = 'off';
+						timeout=window.setTimeout(update, rmax);
 					} else {
-						debug("Connection error status:"+r.status);
+						debug("Connection error status:" + r.status);
 					}
 				}
 			}
-			error_timeout=window.setTimeout(error,5000);
-			if(opt_get.className=='on') {
+			error_timeout = window.setTimeout(error,5000);
+			if(opt_get.className == 'on') {
 				r.send(null);
 			} else {
 				r.send(query);
@@ -157,29 +153,28 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 
 	function queue(s) {
 		keybuf.unshift(s);
-		if(sending==0) {
+		if(sending == 0) {
 			window.clearTimeout(timeout);
-			timeout=window.setTimeout(update,1);
+			timeout = window.setTimeout(update, 1);
 		}
 	}
 
-	function keypress(ev) {
-		if (!ev) var ev=window.event;
-//		s="kp keyCode="+ev.keyCode+" which="+ev.which+" shiftKey="+ev.shiftKey+" ctrlKey="+ev.ctrlKey+" altKey="+ev.altKey;
-//		debug(s);
-//		return false;
-//		else { if (!ev.ctrlKey || ev.keyCode==17) { return; }
+    /* Some browsers - e.g. Chrome - don't allow ev.which to be modified. */
+	function _keypress(ev, which) {
 		var kc;
 		var k="";
-		if (ev.keyCode)
-			kc=ev.keyCode;
-		if (ev.which)
-			kc=ev.which;
+		if (ev.keyCode) {
+			kc = ev.keyCode;
+        }
+		if (which != 0) {
+			kc = which;
+        }
 		if (ev.altKey) {
-			if (kc>=65 && kc<=90)
-				kc+=32;
-			if (kc>=97 && kc<=122) {
-				k=String.fromCharCode(27)+String.fromCharCode(kc);
+			if ((kc >= 65) && (kc <= 90)) {
+				kc += 32;
+            }
+			if ((kc >= 97) && (kc <= 122)) {
+				k = String.fromCharCode(27) + String.fromCharCode(kc);
 			}
 		} else if (ev.ctrlKey) {
 			if (kc>=65 && kc<=90) k=String.fromCharCode(kc-64); // Ctrl-A..Z
@@ -191,7 +186,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 			else if (kc==221) k=String.fromCharCode(29); // Ctrl-]
 			else if (kc==219) k=String.fromCharCode(29); // Ctrl-]
 			else if (kc==219) k=String.fromCharCode(0);  // Ctrl-@
-		} else if (ev.which==0) {
+		} else if (which==0) {
 			if (kc==9) k=String.fromCharCode(9);  // Tab
 			else if (kc==8) k=String.fromCharCode(127);  // Backspace
 			else if (kc==27) k=String.fromCharCode(27); // Escape
@@ -236,25 +231,41 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 				queue(escape(k));
 			}
 		}
+
 		ev.cancelBubble=true;
 		if (ev.stopPropagation) ev.stopPropagation();
 		if (ev.preventDefault)  ev.preventDefault();
 		return false;
 	}
 
-	function keydown(ev) {
-		if (!ev) var ev=window.event;
-		if (ie) {
-//			s="kd keyCode="+ev.keyCode+" which="+ev.which+" shiftKey="+ev.shiftKey+" ctrlKey="+ev.ctrlKey+" altKey="+ev.altKey;
-//			debug(s);
-			o={9:1,8:1,27:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1,40:1,45:1,46:1,112:1,
-			113:1,114:1,115:1,116:1,117:1,118:1,119:1,120:1,121:1,122:1,123:1};
+	function keypress(ev, which) {
+		if (!ev) {
+            var ev=window.event;
+        }
+        keystate += 0;
+        return _keypress(ev, ev.which);
+    }
+
+    /* keystate >= 0 means a keypress event was generated. */
+	function keyup(ev) {
+		if (!ev) {
+            var ev=window.event;
+        }
+		if (keystate < 0) {
+            /* This unfortunately misses repeats for unhandled keys. */ 
+			o = {9:1,8:1,27:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1,40:1,45:1,
+                 46:1,112:1,113:1,114:1,115:1,116:1,117:1,118:1,119:1,120:1,
+                 121:1,122:1,123:1};
 			if (o[ev.keyCode] || ev.ctrlKey || ev.altKey) {
-				ev.which=0;
-				return keypress(ev);
+				return _keypress(ev, 0);
 			}
 		}
+        keystate += 1;
 	}
+
+    function keydown(ev) {
+        keystate = -1;
+    }
 
 	function init() {
 		sled.appendChild(document.createTextNode('\xb7'));
@@ -280,6 +291,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 		}
 		document.onkeypress=keypress;
 		document.onkeydown=keydown;
+        document.onkeyup = keyup;
 		timeout=window.setTimeout(update,100);
 	}
 	init();
