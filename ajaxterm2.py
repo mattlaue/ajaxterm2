@@ -17,6 +17,7 @@ import termios
 import struct
 
 import logging
+from ConfigParser import SafeConfigParser
 
 import webob
 
@@ -612,7 +613,54 @@ def make_server(global_conf, port, host='', use_reloader=False):
         httpserver.serve(app, host=host, port=port)
     return serve
 
-LOGGING_FORMAT = '[%(asctime)s] %(levelname)s %(message)s'
+def make_logger(name, config):
+
+    if not name.startswith('logger:'):
+        section = 'logger:'+name
+    else:
+        section = name
+        x, name = section.split(':', 1)
+    
+    level = getattr(logging, config.get(section, 'level'))
+    filename = config.get(section, 'filename')
+
+    if filename and filename.lower() == 'stderr':
+            filename = None
+
+    fmt = config.get(section, 'format', raw=True)
+    datefmt = config.get(section, 'datefmt', raw=True)
+
+    if name == 'root':
+        logger = logging.getLogger()
+    else:
+        logger = logging.getLogger(name)
+
+    formatter = logging.Formatter(fmt=fmt, datefmt=datefmt)
+
+    if filename:
+        from logging.handlers import RotatingFileHandler
+        max_bytes = config.getint(section, 'max_bytes')
+        backup_count = config.getint(section, 'backup_count')
+        handler = RotatingFileHandler(filename, "a", max_bytes, backup_count)
+    else:
+        handler = logging.StreamHandler()
+
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(level)
+
+def make_loggers(path):
+    defaults = { 'level': 'INFO',
+                 'filename': None,
+                 'format': '[%(asctime)s] %(levelname)s %(message)s',
+                 'datefmt': None,
+                 'max_bytes': 20*1024*1024,
+                 'backup_count': 5 }
+    config = SafeConfigParser(defaults)
+    config.read([path])
+    for section in config.sections():
+        if section.startswith('logger:'):
+            make_logger(section, config)
 
 def main():
     from argparse import ArgumentParser
@@ -624,7 +672,7 @@ def main():
     path = os.path.abspath(args.configpath)
     url = 'config:'+path
 
-    logging.basicConfig(level=logging.INFO, format=LOGGING_FORMAT)
+    make_loggers(path)
 
     import paste.deploy
     app = paste.deploy.loadapp(url)
