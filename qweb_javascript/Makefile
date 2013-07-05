@@ -1,2 +1,0 @@
-all:
-	smjs qweb.js

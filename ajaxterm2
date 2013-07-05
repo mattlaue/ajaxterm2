@@ -1,0 +1,7 @@
+#!/bin/sh
+
+err=3
+while test "$err" -eq 3 ; do
+    python -m ajaxterm2 development.ini
+    err="$?"
+done
