@@ -126,7 +126,8 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 						window.clearTimeout(error_timeout);
 						var de = r.responseXML.documentElement;
 						if(de.tagName == "pre") {
-							Sarissa.updateContentFromNode(de, dterm);
+                            var html = new XMLSerializer().serializeToString(de);
+						    dterm.innerHTML = html;
 							rmax = 100;
 						} else {
 							rmax *= 2;
@@ -242,7 +243,7 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 		if (!ev) {
             var ev=window.event;
         }
-        keystate += 0;
+        keystate += 1
         return _keypress(ev, ev.which);
     }
 
