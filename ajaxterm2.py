@@ -666,10 +666,15 @@ def main():
     from argparse import ArgumentParser
 
     parser = ArgumentParser(description='Akiri WSGI Server')
-    parser.add_argument('configpath')
+    parser.add_argument('configpath', nargs='?', default='ajaxterm2.ini')
     args = parser.parse_args()
 
     path = os.path.abspath(args.configpath)
+    if not os.path.isfile(path):
+        import pkg_resources
+        dist = pkg_resources.get_distribution('ajaxterm2')
+        path = os.path.join(dist.location, args.configpath)
+
     url = 'config:'+path
 
     make_loggers(path)
