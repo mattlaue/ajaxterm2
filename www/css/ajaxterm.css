@@ -12,7 +12,7 @@ pre.stat span {
 	padding: 0px;
 }
 pre.stat .on {
-	background-color: #080;
+	background-color: blue;
 	font-weight: bold;
 	color: white;
 	cursor: pointer;
