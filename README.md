@@ -20,6 +20,7 @@ Domain.
 
 ## Changes
  * 2013-07-05: v1.0 fork from original ajaxterm and port to python paste.
+ * 2013-07-02: v1.1 add argument passing via the query string for custom commands.
 
 ---
 
@@ -101,6 +102,16 @@ Then point your browser to this URL : http://localhost:8022
  * Using GET HTTP request seems to speed up ajaxterm, just click on GET in the
    interface, but be warned that your keystrokes might be loggued (by apache or
    any proxy). I usually enable it after the login.
+
+ * Parameters can be passed to the terminal command using the query string of the 
+   application.  For example, assuming the custom command is ''cmd'' is specified 
+   in the INI file, then ''?foo=baz&47&i=10'' becomes:
+
+   <pre>
+    cmd --foo baz 47 -i 10
+   </pre>
+   
+   For security reasons, requests containing characters that the underlying shell would interpret are rejected.
 
  * Comparison to __anyterm__:
    * There are no partial updates, ajaxterm updates either all the screen or
