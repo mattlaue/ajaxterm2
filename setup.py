@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup, find_packages
+from setuptools import setup
 from glob import glob
 
 setup(name='AjaxTerm2',

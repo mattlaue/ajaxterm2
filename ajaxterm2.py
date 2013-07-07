@@ -715,8 +715,8 @@ def make_loggers(path):
                  'filename': None,
                  'format': '[%(asctime)s] %(levelname)s %(message)s',
                  'datefmt': None,
-                 'max_bytes': 20*1024*1024,
-                 'backup_count': 5 }
+                 'max_bytes': str(20*1024*1024),
+                 'backup_count': str(5) }
     config = SafeConfigParser(defaults)
     config.read([path])
     for section in config.sections():

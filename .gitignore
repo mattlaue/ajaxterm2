@@ -1,4 +1,7 @@
 *.pyc
 *.egg-info
+*.deb
 /build
 /dist
+/debian/DEBIAN/control
+/debian/usr

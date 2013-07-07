@@ -1,0 +1,7 @@
+Package: ajaxterm2
+Version: VERSION
+Architecture: all
+Depends: python, python-paste, python-pastedeploy, python-webob
+Maintainer: Akiri Solutions, Inc.
+Description: Web-based terminal
+  This package provides a web-based terminal application.
