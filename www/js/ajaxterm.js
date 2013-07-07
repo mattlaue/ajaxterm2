@@ -132,6 +132,12 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 				send += keybuf.pop();
 			}
 			var query = query1 + send;
+
+            var args = location.search.slice(1);
+            if (args.length > 0) {
+                query = query + '&args='+encodeURIComponent(args);
+            }
+
 			if(opt_get.className == 'on') {
 				r.open("GET","u?"+query, true);
 				if(ie) {
@@ -316,12 +322,12 @@ ajaxterm.Terminal_ctor=function(id,width,height) {
 		document.onkeypress=keypress;
 		document.onkeydown=keydown;
         document.onkeyup = keyup;
-		timeout=window.setTimeout(update,100);
+		timeout=window.setTimeout(update, 100);
 	}
 	init();
 }
 
-ajaxterm.Terminal=function(id,width,height) {
-	return new this.Terminal_ctor(id,width,height);
+ajaxterm.Terminal = function(id,width,height) {
+	return new this.Terminal_ctor(id, width, height);
 }
 

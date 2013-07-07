@@ -40,6 +40,7 @@ import logging
 from ConfigParser import SafeConfigParser
 
 import webob
+import urllib
 
 class Terminal:
     
@@ -462,44 +463,80 @@ class SynchronizedMethod:
 
 class Multiplex:
 
-    def __init__(self,cmd=None):
+    def __init__(self, cmd=None, shell=False):
         signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-        self.cmd=cmd
-        self.proc={}
-        self.lock=threading.RLock()
-        self.thread=threading.Thread(target=self.loop)
-        self.alive=1
+        self.cmd = cmd
+        self.shell = shell
+        self.proc = {}
+        self.lock = threading.RLock()
+        self.thread = threading.Thread(target=self.loop)
+        self.alive = 1
         # synchronize methods
         for name in ['create','fds','proc_read','proc_write','dump','die','run']:
-            orig=getattr(self,name)
-            setattr(self,name,SynchronizedMethod(self.lock,orig))
+            orig = getattr(self,name)
+            setattr(self,name,SynchronizedMethod(self.lock, orig))
         self.thread.start()
 
-    def create(self, w=80, h=25):
-        pid,fd=pty.fork()
-        if pid==0:
+    def _translate(self, args):
+        L = []
+
+        args = args.replace(':','&')
+        args = urllib.unquote(args.encode('ascii','ignore'))
+
+        if any((c in '[]{}<>()`;|!$%*?^') for c in args):
+            return L
+
+        for x in args.split('&'):
+            nv = x.split('=', 1)
+            if len(nv) == 2:
+                name, value = nv
+            else:
+                name, value = nv[0], None
+            if not value:
+                L.append(name)
+                continue
+            if name.startswith('-'):
+                L.extend([name, value])
+                continue
+            if len(name) == 1:
+                name = '-'+name
+            else:
+                name = '--'+name
+            L.extend([name, value])
+        return L
+
+    def create(self, w=80, h=25, args=None):
+        pid,fd = pty.fork()
+        if pid == 0:
             try:
-                fdl=[int(i) for i in os.listdir('/proc/self/fd')]
+                fdl = [int(i) for i in os.listdir('/proc/self/fd')]
             except OSError:
-                fdl=range(256)
+                fdl = range(256)
             for i in [i for i in fdl if i>2]:
                 try:
                     os.close(i)
                 except OSError:
                     pass
             if self.cmd:
-                cmd=['/bin/sh','-c',self.cmd]
-            elif os.getuid()==0:
-                cmd=['/bin/login']
+                if self.shell:
+                    cmd = ['/bin/sh', '-c', self.cmd]
+                else:
+                    cmd = [self.cmd]
+                if args != None:
+                    args = self._translate(args)
+                    cmd.extend(args)
+                print cmd
+            elif os.getuid() == 0:
+                cmd = ['/bin/login']
             else:
                 sys.stdout.write("Login: ")
-                login=sys.stdin.readline().strip()
+                login = sys.stdin.readline().strip()
                 if re.match('^[0-9A-Za-z-_. ]+$',login):
-                    cmd=['ssh']
-                    cmd+=['-oPreferredAuthentications=keyboard-interactive,password']
-                    cmd+=['-oNoHostAuthenticationForLocalhost=yes']
-                    cmd+=['-oLogLevel=FATAL']
-                    cmd+=['-F/dev/null','-l',login,'localhost']
+                    cmd = ['ssh']
+                    cmd += ['-oPreferredAuthentications=keyboard-interactive,password']
+                    cmd += ['-oNoHostAuthenticationForLocalhost=yes']
+                    cmd += ['-oLogLevel=FATAL']
+                    cmd += ['-F/dev/null','-l', login, 'localhost']
                 else:
                     os._exit(0)
             env={}
@@ -578,8 +615,8 @@ class Multiplex:
 
 class AjaxTerm:
 
-    def __init__(self, cmd=None):
-        self.multi = Multiplex(cmd)
+    def __init__(self, cmd=None, shell=False):
+        self.multi = Multiplex(cmd, shell)
         self.session = {}
 
     def __call__(self, environ, start_response):
@@ -591,20 +628,24 @@ class AjaxTerm:
             color = 'c' in req.POST and req.POST["c"] or 0
             w = int(req.POST["w"])
             h = int(req.POST["h"])
+            args = 'args' in req.POST and req.POST["args"] or None
         else:
             s = req.GET["s"]
             k = req.GET["k"]
             color = 'c' in req.GET and req.GET["c"] or 0
             w = int(req.GET["w"])
             h = int(req.GET["h"])
+            args = 'args' in req.GET and req.GET["args"] or None
+
         if s in self.session:
             term = self.session[s]
         else:
-            if not (w>2 and w<256 and h>2 and h<100):
-                w,h=80,25
-            term=self.session[s]=self.multi.create(w,h)
+            if not ((w > 2) and (w < 256) and (h > 2) and (h < 100)):
+                w,h = 80,25
+            term = self.session[s] = self.multi.create(w, h, args)
         if k:
-            self.multi.proc_write(term,k)
+            self.multi.proc_write(term, k)
+
         time.sleep(0.002)
         dump = self.multi.dump(term, color) 
         res.content_type = 'text/xml'
@@ -618,8 +659,8 @@ class AjaxTerm:
 #       print "sessions %r"%self.session
         return res(environ, start_response)
 
-def make_app(global_conf, cmd=None):
-    return AjaxTerm(cmd)
+def make_app(global_conf, cmd=None, shell=False):
+    return AjaxTerm(cmd, shell)
 
 def make_server(global_conf, port, host='', use_reloader=False):
     port = int(port)
